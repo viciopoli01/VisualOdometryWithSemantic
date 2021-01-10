@@ -16,7 +16,7 @@ from dash_extensions import WebSocket
 from dash_extensions.websockets import SocketPool, run_server
 import plotly.express as px
 
-
+import cv2
 
 class Plot:
     yellow = "rgb(255, 200, 87)"
@@ -25,7 +25,7 @@ class Plot:
     red = "rgb(255, 73, 92)"
     purple = "rgb(66, 32, 64)"
     
-    def __init__(self, callback):
+    def __init__(self, callback, first_img):
         self.traj_x = deque(maxlen=200)
         self.traj_y = deque(maxlen=200)
         self.traj_z = deque(maxlen=200)
@@ -47,9 +47,10 @@ class Plot:
         self.err_y.append(0)
         self.err_angle.append(0)
 
-        self.point_cloud = deque(maxlen=50)
+        self.point_cloud = deque(maxlen=200)
         self.point_cloud.append([0,0,0])
 
+        self.video=[]
 
         self.points=[]
 
@@ -68,13 +69,19 @@ class Plot:
                     ''') ,
 
                 dcc.Markdown('''
+                    ## Camera stream.
+                    ''') ,
+                dcc.Graph(id='image_stream',
+                    figure=px.imshow(first_img)
+                ),
+                dcc.Markdown('''
                     ## Estimated and real Duckiebot pose, point cloud.
                     ''') ,
                 dcc.Graph(id='traj-graph', figure=go.Figure(
                     data=go.Scatter3d(
                         x=list(self.traj_x),
-                        y=list(self.traj_y),
-                        z=list(self.traj_z),
+                        y=list(self.traj_z),
+                        z=list(self.traj_y),
                         mode='lines',
                         marker=dict(size=5, color=self.red),
                         line=dict(
@@ -99,13 +106,13 @@ class Plot:
                         mode='lines',
                         name='lines'
                         )
-                    )
+                    ),
                 ),
                 WebSocket(id="ws")
             ]
         )
         #Output("data", "children") 
-        self.app.callback(Output('traj-graph', 'figure'), Output('err-graph', 'figure'),
+        self.app.callback(Output('traj-graph', 'figure'), Output('err-graph', 'figure'),Output('image_stream', 'figure'),
         [Input('ws', 'message')])(self.update_graph_scatter)
         
     def start_server(self):
@@ -118,8 +125,8 @@ class Plot:
         data_traj = [
             go.Scatter3d(
                 x=list(self.traj_x),
-                y=list(self.traj_y),
-                z=list(self.traj_z),
+                y=list(self.traj_z),
+                z=list(self.traj_y),
                 mode='lines+markers',
                 marker=dict(size=5, color=self.red),
                 line=dict(
@@ -150,8 +157,8 @@ class Plot:
             ),
             go.Scatter3d(
                 x=cloud['x'],
-                y=cloud['y'],
-                z=cloud['z'],
+                y=cloud['z'],
+                z=cloud['y'],
                 mode='markers',
                 marker=dict(size=5, color=self.blue),
                 visible=True,
@@ -204,12 +211,14 @@ class Plot:
             )]
         
         return [self.__graph_data(data_traj,[min(list(self.real_traj_x)),max(list(self.real_traj_x))],[min(list(self.real_traj_y)),max(list(self.real_traj_y))]),
-                    self.__graph_data(data_err,[min(steps),max(steps)], [min(list(self.err_x)),max(list(self.err_x))])
+                    self.__graph_data(data_err,[min(steps),max(steps)], [min(list(self.err_x)),max(list(self.err_x))]),
+                    px.imshow(self.video)
                 ]
     
     def __graph_data(self,data,min_max_x,min_max_y):
-        return {'data': data, 'layout' : go.Layout(xaxis=dict(range=min_max_x),
-                                                    yaxis=dict(range=min_max_y),)}
+        return {'data': data, 
+                'layout' : go.Layout(xaxis=dict(range=min_max_x), yaxis=dict(range=min_max_y),scene=dict(aspectmode="cube",aspectratio=dict(x=1, y=1, z=1))),
+                'height':1000}
 
     def draw_line(self):
         self.fig.add_trace(self.__pointsShape(self.points, "Traj", "Traj", self.green))
@@ -218,8 +227,8 @@ class Plot:
         self.traj_x.append(point[0])
         self.traj_y.append(point[1])
         self.traj_z.append(point[2])
-        self.real_traj_x.append(real_point[0])
-        self.real_traj_y.append(real_point[1])
+        self.real_traj_x.append(real_point[1])
+        self.real_traj_y.append(real_point[0])
         self.real_traj_z.append(0)
 
     def add_point_cloud(self, points):
@@ -239,6 +248,9 @@ class Plot:
     def draw_point(self, points, color):
         self.fig.add_trace(self.__pointsShape(points, "point cloud", "point cloud", self.blue))
         
+    def draw_image(self,img):
+        self.video = img
+    
     def __pointsShape1(self, point, name, text, color, visible=True, legend=True):
         return go.Scatter3d(
             x=[point[0]],
@@ -286,10 +298,3 @@ class Plot:
             hoverinfo='text',
             showlegend=legend
         )
-    
-
-    def show(self):
-        self.fig.show()
-
-
-
