@@ -1,7 +1,7 @@
-## VO project
+# VO project
 
 
-# Requirements:
+## Requirements:
 
 To run this project you need to install:
 
@@ -18,7 +18,7 @@ gevent
 ```
 
 
-# Run the simulation:
+## Run the simulation:
 
 ```sh
 python3 vo.py
@@ -27,10 +27,10 @@ python3 vo.py
 Then click on the link "localhost:5000" or go on your browser. 
 
 
-# Dataset
+## Dataset
 
-A dataset can be download from this (link)[https://polybox.ethz.ch/index.php/s/BfKfH8BfEjuDZS8].
-Other datasets can be generated using the Duckietown Gym with semantic: (https://github.com/viciopoli01/gym-duckietown/tree/dt-seg)[https://github.com/viciopoli01/gym-duckietown/tree/dt-seg].
+A dataset can be download from this [link](https://polybox.ethz.ch/index.php/s/BfKfH8BfEjuDZS8).
+Other datasets can be generated using the Duckietown Gym with semantic: [https://github.com/viciopoli01/gym-duckietown/tree/dt-seg](https://github.com/viciopoli01/gym-duckietown/tree/dt-seg).
 
 
 ## Notes:

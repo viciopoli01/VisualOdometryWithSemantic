@@ -6,7 +6,6 @@ from VisualOdometry import VisualOdometry
 import numpy as np 
 
 from class_plot import Plot
-import threading
 
 
 
