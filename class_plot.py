@@ -1,6 +1,5 @@
 import dash_core_components as dcc
 import plotly
-import random
 import plotly.graph_objs as go
 from collections import deque
 import pandas as pd
@@ -8,15 +7,11 @@ import numpy as np
 
 import json
 import dash_html_components as html
-import random
-from gevent import sleep
 import dash
 from dash.dependencies import Input, Output
 from dash_extensions import WebSocket
 from dash_extensions.websockets import SocketPool, run_server
 import plotly.express as px
-
-import cv2
 
 class Plot:
     yellow = "rgb(255, 200, 87)"

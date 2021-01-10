@@ -77,6 +77,9 @@ def ws_handler(ws):
             # draw the resulting pose
             plot.add_traj_point([T[0][0],0,T[2][0]],real_pose)
 
+            # err = features.calcError()
+            # plot.add_err_point(err)
+
             # Plot the point cloud
             plot.add_point_cloud(points)
         

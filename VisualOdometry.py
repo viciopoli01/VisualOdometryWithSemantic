@@ -368,8 +368,11 @@ class VisualOdometry:
 
         Logger().printInfo("Running 5-Point RANSAC algorithm")
         if len(self.kp_prev)<5 or len(self.kp_cur)<5:
-            Logger().printFail("Not enough correspondences")
-            exit(0)
+            Logger().printFail("Not enough inliers detected....")
+            self.LOOSE_THE_TRACK = True
+            gt = self.pose_truth[self.iter_count]
+
+            return  self.T_cur, [gt[0],gt[1],0], self.point_cloud 
         
         #
         # Estimate the Essential Matrix
@@ -382,9 +385,12 @@ class VisualOdometry:
         Logger().printInfo("Essential matrix: {0}".format(E))
         if np.count_nonzero(mask)<5:
             Logger().printFail("Not enough inliers detected....")
-            exit(0)
+            self.LOOSE_THE_TRACK = True
+            gt = self.pose_truth[self.iter_count]
 
-        rep_err, self.R_cur, self.T_cur, mask, _ = cv2.recoverPose(E, points1 = self.kp_cur, points2 = self.kp_prev, cameraMatrix=self.camera_matrix, distanceThresh=5.0, mask = mask)
+            return  self.T_cur, [gt[0],gt[1],0], self.point_cloud 
+
+        rep_err, self.R_cur, self.T_cur, mask = cv2.recoverPose(E, points1 = self.kp_cur, points2 = self.kp_prev, cameraMatrix=self.camera_matrix, mask = mask)
         
         p_matr1 = self.camera_matrix.dot(np.hstack((self.R_prev,self.T_prev)))
         p_matr2 = self.camera_matrix.dot(np.hstack((self.R_cur,self.T_cur)))
