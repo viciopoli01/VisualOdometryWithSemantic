@@ -18,7 +18,11 @@ gevent
 ```
 
 
-## Run the simulation:
+## Run the VO:
+
+Make sure to change the paths to the pose and to the dataset folder in the vo.py file.
+
+After that run:
 
 ```sh
 python3 vo.py
