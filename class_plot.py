@@ -60,7 +60,7 @@ class Plot:
                     '''
                     # Visual Odometry mini-Project Vincenzo Polizzi, 2020
                     Graphical representation of the visual odometry results
-                    for more information visit [github.com](https://github.com)
+                    for more information visit [github.com](https://github.com/viciopoli01/VisualOdometryWithSemantic)
                     ''') ,
 
                 dcc.Markdown('''
@@ -152,8 +152,8 @@ class Plot:
             ),
             go.Scatter3d(
                 x=cloud['x'],
-                y=cloud['z'],
-                z=cloud['y'],
+                y=cloud['y'],
+                z=cloud['z'],
                 mode='markers',
                 marker=dict(size=5, color=self.blue),
                 visible=True,

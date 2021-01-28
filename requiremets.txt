@@ -1,0 +1,9 @@
+plotly
+dash-core-components
+pandas
+numpy
+opencv-python==4.4.0.44
+gevent
+dash==1.18.1
+dash-extensions==0.0.41
+Flask-Sockets==0.2.1

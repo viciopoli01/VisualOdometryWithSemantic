@@ -15,7 +15,7 @@ from gevent import sleep
 import csv
 
 
-POSES = "/home/viciopoli/Desktop/VisionAlgorithm/VO050121/poses.csv"
+POSES = "poses.csv"
 CAMERA_MATRIX = np.array([
             305.5718893575089, 0, 303.0797142544728,
             0, 308.8338858195428, 231.8845403702499,
@@ -45,8 +45,8 @@ def ws_handler(ws):
     features = VisualOdometry(intrinsic=CAMERA_MATRIX, groundTruth=groud_truth_pose, step=step)
 
 
-    img1 = cv2.imread(f'dt_dataset/45.png', cv2.IMREAD_GRAYSCALE)
-    sem1 = cv2.imread(f'dt_dataset/seg_45.png', cv2.IMREAD_UNCHANGED)
+    img1 = cv2.imread(f'dt_dataset/115.png', cv2.IMREAD_GRAYSCALE)
+    sem1 = cv2.imread(f'dt_dataset/seg_115.png', cv2.IMREAD_UNCHANGED)
     
     k1 = features.estract(img1, sem1)
     print(len(k1))
@@ -54,7 +54,7 @@ def ws_handler(ws):
     features.next()
 
 
-    for idx,i in enumerate(range(120,500,step)):
+    for idx,i in enumerate(range(116,500,step)):
         print(f"step n. {i}")
         sleep(1)
 
@@ -68,13 +68,13 @@ def ws_handler(ws):
 
         if not reinit_frame:
             # Match the features
-            k_cur,k_prev=features.match()
+            k_cur, k_prev = features.match()
 
             # Triangulate with 5-point or with EPNP using the Point Cloud
-            T, real_pose , points = features.triangulate()
+            T, real_pose, points = features.triangulate()
 
             # draw the resulting pose
-            plot.add_traj_point([T[0][0],0,T[2][0]],real_pose)
+            plot.add_traj_point([T[0][0],T[1][0],T[2][0]],real_pose)
 
             # err = features.calcError()
             # plot.add_err_point(err)
@@ -97,9 +97,7 @@ def ws_handler(ws):
     sleep(2)
     exit(0)
 
-starting_image=cv2.cvtColor(cv2.imread(f'dt_dataset/45.png',cv2.IMREAD_GRAYSCALE), cv2.COLOR_BGR2RGB)
+starting_image = cv2.cvtColor(cv2.imread(f'dt_dataset/115.png',cv2.IMREAD_GRAYSCALE), cv2.COLOR_BGR2RGB)
 
 plot = Plot(ws_handler,starting_image)
 plot.start_server()
-
-

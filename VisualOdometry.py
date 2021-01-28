@@ -51,6 +51,9 @@ class Logger:
 class VisualOdometry:
     
     def __init__(self, intrinsic, groundTruth=[], step=1):
+
+        self.orb = cv2.ORB()
+
         # Duckiebot camera orientation
         self.camera_orientation_angle=15*np.pi/180
         
@@ -83,8 +86,8 @@ class VisualOdometry:
         self.point_cloud_kp = []
         self.point_cloud_sem_descriptor = []
         self.point_cloud_correspondences = []
-        self.point_cloud_R = []
-        self.point_cloud_T = []
+        self.point_cloud_R = np.eye(3)
+        self.point_cloud_T = np.array([[0],[0],[0]])
     
         # Flags for the point cloud update
         self.POINT_CLOUD=False
@@ -103,7 +106,13 @@ class VisualOdometry:
         # flag if the tracked features are few
         self.LOOSE_THE_TRACK=True
         self.MIN_FEATURES=1500
-    
+        self.FirstPointCloud=True
+
+
+
+        self.Framskip=0
+        self.KLTwinSize=(25, 25)
+
     def scale(self):
         #
         #   Calculating the scale for the translation vector.
@@ -136,6 +145,11 @@ class VisualOdometry:
             return 5
         return -4
 
+    def __skipFrame(self):
+        if self.Framskip>0:
+            self.Framskip-=1
+        return not self.Framskip==0
+
     def __corners(self):
         # Extract Shi-Tomasi corners
         self.kp_prev=[]
@@ -150,13 +164,15 @@ class VisualOdometry:
         self.kp_cur = np.array([x[0] for x in self.kp_cur], dtype=np.float32)
         self.LOOSE_THE_TRACK = False
 
-    def __LKT(self):
 
+        
+
+    def __LKT(self):
         assert(len(self.semdes_prev)==len(self.kp_prev)), "Semantic descriptor and Points vector must have the same lenght"
 
         
         # track the Shi-Tomasi corners using Lucas-Kanade method
-        self.kp_cur, status, err = cv2.calcOpticalFlowPyrLK(self.img_prev, self.img_cur, self.kp_prev, None, winSize  = (25, 25), criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01))
+        self.kp_cur, status, err = cv2.calcOpticalFlowPyrLK(self.img_prev, self.img_cur, self.kp_prev, None, winSize  = self.KLTwinSize, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01))
         
         status = status.reshape(status.shape[0])
         # use only the good points and semantic descriptor
@@ -180,6 +196,7 @@ class VisualOdometry:
         # remove the wrong correspondences with the previous keypoint and semantic desc
         kp_prev = []
         sem_prev = []
+        self.semdes_cur=[]
         for idx, kp in enumerate(self.kp_cur):
             # create a semantic descriptor only 6 are the classes considered static
             sem_desc = np.zeros(6)
@@ -237,14 +254,21 @@ class VisualOdometry:
 
             
         # Redetect features or track them
-        if self.LOOSE_THE_TRACK: # the first frame need new features
+        if self.LOOSE_THE_TRACK: # the first frame needs new features
             # Detect Shi-Tomasi corners
             Logger().printWarning("Reinitializing features to track")
             self.__corners()
+            self.__reset()
+            self.Framskip=10
+            self.KLTwinSize=(50, 50)
         else:
+            if self.__skipFrame():
+                Logger().printWarning("Skipping frames")
+                return [], True
             Logger().printWarning("Tracking features")
             self.__LKT()
-        
+            KLTwinSize=(25, 25)
+
         self.__getSemanticDescriptor()
 
         return self.kp_cur, not self.kp_prev.size>0 # flag to see if we can match or not.
@@ -253,7 +277,6 @@ class VisualOdometry:
         """
         Remove tracked features with different semantic descriptor.
         """
-
         if self.POINT_CLOUD==True:
             self.__matchCloud()
         else :
@@ -305,7 +328,6 @@ class VisualOdometry:
         self.semdes_cur=np.array(sem_cur)
         self.semdes_prev=np.array(sem_prev)
 
-
     def poseFromEPnP(self):
         #dist_coef = np.zeros(4)
         imgPoints=np.float32(np.ascontiguousarray([m[1] for m in self.correspondences]).reshape((len(self.correspondences),1,2)))
@@ -315,7 +337,7 @@ class VisualOdometry:
         T_cur=np.float32(self.T_cur)
         R_cur=np.float32(self.R_cur)
 
-        Logger().printFail("T cur : {0}".format(self.T_cur))
+        # Logger().printFail("T cur : {0}".format(self.T_cur))
 
         repr_error, r_vec, t_vec, _ = cv2.solvePnPGeneric(
             objectPoints=objPoints,
@@ -327,12 +349,14 @@ class VisualOdometry:
             useExtrinsicGuess=True,
             flags=cv2.SOLVEPNP_EPNP)
             
-        self.T_cur  = t_vec[0]
-        self.R_cur,_= cv2.Rodrigues(r_vec[0])
 
         scale  = self.scale()[0]
-        self.T_cur = self.T_prev + scale*self.point_cloud_R.dot(self.T_cur)
-        self.R_cur = self.R_cur.dot(self.point_cloud_R)
+        if self.FirstPointCloud:
+            self.T_cur  = scale*t_vec[0]
+            self.R_cur,_= cv2.Rodrigues(r_vec[0])
+        else:
+            self.T_cur = self.T_prev + self.point_cloud_R.dot(self.T_cur)
+            self.R_cur = self.R_cur.dot(self.point_cloud_R)
 
 
         self.point_cloud_sem_descriptor=self.semdes_cur.copy()
@@ -341,8 +365,8 @@ class VisualOdometry:
         #self.R_cur = self.R_cur
         
         Logger().printInfo("    USING EPnP    ")
-        Logger().printInfo("    R    {0}".format(self.R_cur))
-        Logger().printInfo("    T    {0}".format(self.T_cur))
+        # Logger().printInfo("    R    {0}".format(self.R_cur))
+        # Logger().printInfo("    T    {0}".format(self.T_cur))
         Logger().printInfo("    using the point cloud    ")
 
         return self.R_cur, self.T_cur
@@ -352,6 +376,9 @@ class VisualOdometry:
             Logger().printWarning(" Point cloud needs to be reinitialized ")
             self.POINT_CLOUD=False
             self.LOOSE_THE_TRACK=True
+            self.FirstPointCloud=False
+            return True
+        return False
 
     def triangulate(self):
         #
@@ -359,10 +386,14 @@ class VisualOdometry:
         #
         self.T_prev=self.T_cur
         self.R_prev=self.R_cur
-
+        
         if self.POINT_CLOUD:
             self.poseFromEPnP()
-            self.pointCloudStatus()
+            if self.pointCloudStatus():
+                self.__corners()
+                self.__getSemanticDescriptor()
+                self.__reset()
+                self.Framskip=10
             return self.T_cur, self.pose_truth[self.step-1], self.point_cloud
 
 
@@ -382,7 +413,7 @@ class VisualOdometry:
         #
         # Recover pose uses decomposeEssentialMat and performs the Cheirality check (the features must be in front of the camera) on the possible Rotation maticess
         #
-        Logger().printInfo("Essential matrix: {0}".format(E))
+        # Logger().printInfo("Essential matrix: {0}".format(E))
         if np.count_nonzero(mask)<5:
             Logger().printFail("Not enough inliers detected....")
             self.LOOSE_THE_TRACK = True
@@ -395,11 +426,15 @@ class VisualOdometry:
         p_matr1 = self.camera_matrix.dot(np.hstack((self.R_prev,self.T_prev)))
         p_matr2 = self.camera_matrix.dot(np.hstack((self.R_cur,self.T_cur)))
         point_cloud = cv2.triangulatePoints(projMatr1=p_matr1, projMatr2=p_matr2, projPoints1=self.kp_cur.T, projPoints2=self.kp_prev.T)
-        point_cloud/=point_cloud[3]  # bethe result is in homogeneous coordinates
+        
+        p_matr1_inv = self.camera_matrix.dot(np.hstack((self.R_prev.T,-self.T_prev)))
+        #point_cloud=p_matr1.dot(point_cloud)
+        point_cloud/=point_cloud[3]  # the result is in homogeneous coordinates
 
         self.point_cloud=(point_cloud[:3]).T
-        print("Printing cloud")
-        print(self.point_cloud)
+        Logger().printInfo("PointCloud Found")
+        # print("Printing cloud")
+        # print(self.point_cloud)
         self.POINT_CLOUD=True
         self.point_cloud_sem_descriptor=self.semdes_cur.copy()
         self.point_cloud_kp=self.kp_cur.copy()
@@ -410,11 +445,12 @@ class VisualOdometry:
 
          
         scale  = self.scale()[0]
+        Logger().printFail("scale is {0}".format(scale))
         self.T_cur = self.T_prev + scale*self.R_prev.dot(self.T_cur)
         self.R_cur = self.R_cur.dot(self.R_prev)
 
-        self.point_cloud_T=self.T_cur.copy()
-        self.point_cloud_R=self.R_cur.copy()
+        self.point_cloud_T=self.point_cloud_T+self.point_cloud_R.dot(self.T_prev)
+        self.point_cloud_R=self.R_prev.dot(self.point_cloud_R)
 
         # print(scale)
         # print(self.T_cur)
@@ -452,6 +488,14 @@ class VisualOdometry:
 
     def next(self):
         self.iter_count+=1
+        if self.Framskip==0: 
+            self.__reset()
+
+        if not self.pose_truth==[]:
+            for _ in range(self.step):
+                self.pose_truth.pop(0)
+
+    def __reset(self):
         self.img_prev    = self.img_cur.copy()
         self.kp_prev     = self.point_cloud_kp if self.POINT_CLOUD else self.kp_cur.copy()
         self.semdes_prev = self.semdes_cur.copy()
@@ -459,7 +503,3 @@ class VisualOdometry:
         self.kp_cur  = []
         self.semdes_cur  = []
         self.img_cur=[]
-
-        if not self.pose_truth==[]:
-            for _ in range(self.step):
-                self.pose_truth.pop(0)

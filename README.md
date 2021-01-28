@@ -3,18 +3,10 @@
 
 ## Requirements:
 
-To run this project you need to install:
+To run this project you need to install some python dependencies.
 
 ```
-plotly
-dash-core-components
-pandas
-numpy
-opencv-python==4.4.0
-json
-csv
-random
-gevent
+pip3 install -r requiremets.txt
 ```
 
 
