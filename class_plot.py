@@ -42,7 +42,7 @@ class Plot:
         self.err_y.append(0)
         self.err_angle.append(0)
 
-        self.point_cloud = deque(maxlen=200)
+        self.point_cloud = deque(maxlen=5000)
         self.point_cloud.append([0,0,0])
 
         self.video=[]
@@ -120,8 +120,8 @@ class Plot:
         data_traj = [
             go.Scatter3d(
                 x=list(self.traj_x),
-                y=list(self.traj_z),
-                z=list(self.traj_y),
+                y=list(self.traj_y),
+                z=list(self.traj_z),
                 mode='lines+markers',
                 marker=dict(size=5, color=self.red),
                 line=dict(
@@ -152,8 +152,8 @@ class Plot:
             ),
             go.Scatter3d(
                 x=cloud['x'],
-                y=cloud['y'],
-                z=cloud['z'],
+                y=cloud['z'],
+                z=-cloud['y'],
                 mode='markers',
                 marker=dict(size=5, color=self.blue),
                 visible=True,
@@ -219,15 +219,19 @@ class Plot:
         self.fig.add_trace(self.__pointsShape(self.points, "Traj", "Traj", self.green))
 
     def add_traj_point(self, point, real_point):
+        point=point.copy()
+        real_point=real_point.copy()
         self.traj_x.append(point[0])
-        self.traj_y.append(point[1])
-        self.traj_z.append(point[2])
+        self.traj_y.append(point[2])
+        self.traj_z.append(-point[1])
         self.real_traj_x.append(real_point[1])
         self.real_traj_y.append(real_point[0])
         self.real_traj_z.append(0)
 
     def add_point_cloud(self, points):
-        self.point_cloud=points[:150]
+        points=points.copy()
+        for p in points:
+            self.point_cloud.append(p)
 
     def add_err_point(self, point):
         self.err_x.append(point[0])

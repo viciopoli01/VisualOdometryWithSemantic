@@ -14,7 +14,6 @@ import random
 from gevent import sleep
 import csv
 
-
 POSES = "poses.csv"
 CAMERA_MATRIX = np.array([
             305.5718893575089, 0, 303.0797142544728,
@@ -49,7 +48,6 @@ def ws_handler(ws):
     sem1 = cv2.imread(f'dt_dataset/seg_115.png', cv2.IMREAD_UNCHANGED)
     
     k1 = features.estract(img1, sem1)
-    print(len(k1))
     
     features.next()
 
@@ -69,6 +67,9 @@ def ws_handler(ws):
         if not reinit_frame:
             # Match the features
             k_cur, k_prev = features.match()
+            for i in range(len(k_cur)):
+                img_cur = cv2.arrowedLine(img_cur, tuple(k_prev[i]), tuple(k_cur[i]),
+                                     (255,255,255), 1)
 
             # Triangulate with 5-point or with EPNP using the Point Cloud
             T, real_pose, points = features.triangulate()
