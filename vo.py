@@ -75,7 +75,7 @@ def ws_handler(ws):
             T, real_pose, points = features.triangulate()
 
             # draw the resulting pose
-            plot.add_traj_point([T[0][0],T[1][0],T[2][0]],real_pose)
+            plot.add_traj_point([T[0][0],T[1][0],T[2][0]],[0,0,0])
 
             # err = features.calcError()
             # plot.add_err_point(err)

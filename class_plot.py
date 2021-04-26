@@ -43,7 +43,7 @@ class Plot:
         self.err_angle.append(0)
 
         self.point_cloud = deque(maxlen=5000)
-        self.point_cloud.append([0,0,0])
+        #self.point_cloud.append([0,0,0])
 
         self.video=[]
 

@@ -157,7 +157,7 @@ class VisualOdometry:
     def __skipFrame(self):
         if self.Framskip>0:
             self.Framskip-=1
-        self.total_scale+=self.scale()[0]
+        self.total_scale=self.scale()[0]
         return not self.Framskip==0
 
     def __corners(self):
@@ -330,24 +330,12 @@ class VisualOdometry:
         
         # for p in imgpts:
         #     print("ORCA")
-        #     image = cv2.circle(self.img_cur, (p[0][0],p[0][1]), radius=5, color=(255, 255, 255), thickness=-1)
+        #     image = cv2.circle(self.img_prev, (p[0][1],p[0][0]), radius=5, color=(255, 255, 255), thickness=-1)
 
         # cv2.imshow("sasa",image)
         # cv2.waitKey(0)
 
-        # repr_error, r_vec, t_vec, inl = cv2.solvePnPRansac(
-        #     objectPoints = objPoints,
-        #     imagePoints = imgPoints,
-        #     cameraMatrix = self.camera_matrix,
-        #     distCoeffs = None,
-        #     reprojectionError=0.01,
-        #     confidence=0.999,
-        #     useExtrinsicGuess=True,
-        #     rvec=self.rotation_matrix_to_attitude_angles(self.R_cur),
-        #     tvec=self.T_cur,
-        #     flags=cv2.SOLVEPNP_ITERATIVE)
-
-        repr_error, r_vec, t_vec = cv2.solvePnP(
+        success, r_vec, t_vec = cv2.solvePnP(
             objectPoints = objPoints,
             imagePoints = imgPoints,
             cameraMatrix = self.camera_matrix,
@@ -364,7 +352,7 @@ class VisualOdometry:
         
         # for p in imgpts:
         #     print("ORCA")
-        #     image = cv2.circle(self.img_cur, (p[0][0],p[0][1]), radius=5, color=(255, 255, 255), thickness=-1)
+        #     image = cv2.circle(self.img_cur, (p[0][1],p[0][0]), radius=5, color=(255, 255, 255), thickness=-1)
 
         # cv2.imshow("sasa",image)
         # cv2.waitKey(0)
@@ -385,10 +373,12 @@ class VisualOdometry:
 
         # Logger().printInfo("    Inliers    {0}".format(inl))
         scale  = self.scale()[0]
-        Logger().printInfo("    PnP went ok    {0}".format(repr_error))
-        #print(repr_error)
-        
-        if repr_error:
+        if success:
+            Logger().printSuccess("    PnP went ok    ")
+        else:
+            Logger().printFail("    PnP went bad    ")
+
+        if success:
             self.T_cur = self.point_cloud_T + self.point_cloud_R.dot(t_vec.copy())
             self.R_cur = self.point_cloud_R.dot(cv2.Rodrigues(r_vec)[0].copy())
 
@@ -397,7 +387,7 @@ class VisualOdometry:
 
         #self.R_cur = self.R_cur
         
-        Logger().printInfo("    USING EPnP    ")
+        Logger().printInfo("    USING PnP    ")
         # Logger().printInfo("    R    {0}".format(self.R_cur))
         # Logger().printInfo("    T    {0}".format(self.T_cur))
         Logger().printInfo("    using the point cloud    ")
@@ -405,7 +395,7 @@ class VisualOdometry:
         return self.R_cur, self.T_cur
 
     def pointCloudStatus(self):
-        if len(self.correspondences)<15 or self.POINT_CLOUD_ITER==20:
+        if len(self.correspondences)<15 or self.POINT_CLOUD_ITER==30:
             Logger().printWarning(" Point cloud needs to be reinitialized ")
             self.POINT_CLOUD=False
             self.FirstPointCloud=False
@@ -427,7 +417,7 @@ class VisualOdometry:
             else:
                 self.poseFromEPnP()
             
-            return self.T_cur, self.pose_truth[self.step-1], self.point_cloud
+            return self.T_cur.copy(), self.pose_truth[self.step-1].copy(), self.point_cloud.copy()
 
 
         Logger().printInfo("Running 5-Point RANSAC algorithm")
@@ -490,7 +480,6 @@ class VisualOdometry:
         p_matr1 = self.camera_matrix.dot(np.hstack((self.R_prev,self.T_prev)))
         # p_matr1 = self.camera_matrix.dot(np.hstack((np.eye(3),np.zeros((3,1)))))
 
-
         p_matr2 = self.camera_matrix.dot(np.hstack((self.R_cur,self.T_cur)))
 
         point_cloud = cv2.triangulatePoints(projMatr1=p_matr1, projMatr2=p_matr2, projPoints1=self.kp_prev.T, projPoints2=self.kp_cur.T)
@@ -503,8 +492,6 @@ class VisualOdometry:
         self.point_cloud=(point_cloud[:3].T).copy()
 
         Logger().printInfo("Point cloud initialized")
-        # print("Printing cloud")
-        # print(self.point_cloud)
         self.POINT_CLOUD=True
         self.point_cloud_sem_descriptor=self.semdes_cur.copy()
         self.point_cloud_kp=self.kp_cur.copy()
@@ -516,15 +503,9 @@ class VisualOdometry:
         self.point_cloud_T=self.T_prev.copy()
         self.point_cloud_R=self.R_prev.copy()
 
-        # print(scale)
-        # print(self.T_cur)
-        # print(self.R_cur)
-        # if self.kp_cur.shape[0]<self.MIN_FEATURES:
-        #     self.__corners()
-
         gt = self.pose_truth[self.iter_count]
 
-        return  self.T_cur, [gt[0],gt[1],0], self.point_cloud
+        return  self.T_cur.copy(), [gt[0],gt[1],0].copy(), self.point_cloud.copy()
 
     def refineConers(self,corners):
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
